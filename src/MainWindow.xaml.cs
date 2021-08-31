@@ -150,6 +150,10 @@ namespace WpfImageViewer
             {
                 SetImage(_directory);
             }
+            else
+            {
+                _showHelpOnLoad = true;
+            }
             if (_showHelpOnLoad)
             {
                 ShopHelpText();

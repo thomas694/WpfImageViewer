@@ -2,7 +2,7 @@
         x:Class="WpfImageViewer.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="MainWindow" WindowStyle="None" WindowState="Normal" Loaded="Window1_Loaded">
+        Title="MainWindow" WindowStyle="None" WindowState="Maximized" Loaded="Window1_Loaded">
     <Grid x:Name="Grid1" MouseDown="Grid1_MouseDown" MouseWheel="Grid1_HandleMouseWheel">
         <Border x:Name="Border1" ClipToBounds="True">
             <Image x:Name="Image1" MouseLeftButtonDown="Image1_MouseLeftButtonDown" MouseMove="Image1_MouseMove" 
