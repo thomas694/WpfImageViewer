@@ -9,68 +9,69 @@ It supports animated GIFs and can either run them or show a preview image only.
 
 ### Mouse
 
-* Left Mouse Button: drag the image around the screen
+* Left mouse button: drag the image around the screen
     * double-click: choose a file/folder to show
-* Right Mouse Button: copy directory of current image to clipboard
+* Right mouse button: copy directory of current image to clipboard
     * double-click: copy full path of current image to clipboard
-* Middle Mouse Button: open Explorer with current file selected
-* Mousewheel: Zoom in/out
+* Middle mouse button: open Explorer with current file selected
+* Mouse wheel: zoom in/out
 
 ### Keyboard commands
 
 * H/I/F1: show a help screen
-* Esc: close help / slideshow / application
-* Home: first file in folder
-* End: last file in folder
-* Left: previous file in folder
-* Right: next file in folder
-* Spacebar: center image & reset zoom level
+* Esc: close help / stop slideshow / close application/window
+* Home/End: first/last file in image list
+* Left/Right: previous/next file in image list
+* Spacebar: center image & reset zoom level / start/pause slideshow
 
-#### in zoom modus
+#### in zoom mode
 
 * Alt + Left/Right/Up/Down: move the image around
 
-#### in slideshow modus
+#### in slideshow mode
 
 * PageUp/PageDown: change the image duration (1..30 seconds)
 
-### Config
+### Config / Parameters
 
-Some parameters can be overridden in WpfImageViewer.exe.config.
+Some settings can be overridden in WpfImageViewer.exe.config.
 
 * ApplicationTitle
     * set the name of the application, e.g. shown during Alt-Tab
     * default: Wpf Image Viewer
-* FadeoutSeconds
-    * decimal amount of seconds before status text disappears
-    * default: 2 seconds
-    * 0 disables status text
-    * negative values disable fadeout
-* IncludedFileFormats
-    * extensions to include when trying to view files
-    * include dots before extension, separate by only comma, no space
-    * default: .bmp,.gif,.jpeg,.jpg,.png,.tif,.tiff
 * BackgroundColor
-    * tries to set background using a color name, e.g. Pink
+    * set background color using a color name
     * default: Black
-* ZoomMin
-    * minimum zoom amount
-    * default: 0.1
-* ZoomMax
-    * maximum zoom amount
-    * default: 5
-* ZoomStep
-    * change in zoom amount per step
-    * default: 1.25
-* ShowHelpOnLoad
-	* shows a help screen on application/dialog load
-	* default: False
+* ImageDurationSeconds
+    * number of seconds to show the image in slideshow mode
+    * default: 2 seconds
+* IncludedFileExtensions
+    * extensions to include when loading images from folder
+    * include dot before extension, separate by only comma, no space
+    * default: .bmp,.gif,.jpeg,.jpg,.png,.tif,.tiff
+* MsgColor
+    * set message text color using a color name
+    * default: Green
+* MsgFadeoutSeconds
+    * decimal value of seconds before status text disappears
+    * default: 2 seconds
+    * 0 disables the status text
+    * a negative value disables fadeout
 * RunAnimatedGifs
-	* run the animated gif or show a preview only
-	* default: True
-* ImageDuration
-	* decimal amount of seconds to show the image in slideshow mode
-	* default: 2 seconds
+    * run the animated gif or show a preview only
+    * default: True
+* ShowHelpOnLoad
+    * shows a help screen on application/dialog load
+    * default: False
+* ZoomMax
+    * maximum zoom value
+    * default: 5
+* ZoomMin
+    * minimum zoom value
+    * default: 0.1
+* ZoomStep
+    * change in zoom value per step
+    * default: 1.25
 
 ### Usage as dialog inside another application
 
@@ -84,5 +85,10 @@ optionally you can use an overloaded constructor and specify non-default setting
 // declaration of overloaded constructor
 WpfImageViewer.MainWindow wnd = new WpfImageViewer.MainWindow(string folder, bool showHelpOnLoad, bool runAnimatedGifs,
     string backgroundColor, string includedFileFormats, int imageDuration, double fadeoutSeconds, double zoomMin, double zoomMax, double zoomStep)
+```
+or if you only want to specify the folder to load:
+```csharp
+// declaration of overloaded constructor
+WpfImageViewer.MainWindow wnd = new WpfImageViewer.MainWindow(string folder)
 ```
 <br/><br/>

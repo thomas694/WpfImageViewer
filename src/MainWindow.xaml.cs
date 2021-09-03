@@ -1,6 +1,7 @@
 ﻿using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -27,39 +28,55 @@ namespace WpfImageViewer
             HelpShown = 8
         }
 
-        // import settings from config file
-        string applicationTitle = Properties.Settings.Default.ApplicationTitle;
-        string _backgroundColor = Properties.Settings.Default.BackgroundColor;
-        string _includedFileFormats = Properties.Settings.Default.IncludedFileFormats;
-        string[] fileFormats;
-        double _fadeoutSeconds = Properties.Settings.Default.FadeoutSeconds;
-        double _zoomMin = Properties.Settings.Default.ZoomMin;
-        double _zoomMax = Properties.Settings.Default.ZoomMax;
-        double _zoomStep = Properties.Settings.Default.ZoomStep;
-        int _imageDuration = Properties.Settings.Default.ImageDuration;
-        bool _showHelpOnLoad = Properties.Settings.Default.ShowHelpOnLoad;
-        bool _runAnimatedGifs = Properties.Settings.Default.RunAnimatedGifs;
+        // settings
+        string _applicationTitle;
+        string _backgroundColor;
+        string _msgColor;
+        string _includedFileExtensions;
+        string[] fileExtensions;
+        double _msgFadeoutSeconds;
+        double _zoomMin;
+        double _zoomMax;
+        double _zoomStep;
+        int _imageDurationSeconds;
+        bool _showHelpOnLoad;
+        bool _runAnimatedGifs;
 
-        // related to file navigation
+        // file navigation
         string _directory;
         IEnumerable<string> fileList = new List<string>();
         int currentFileIndex;
 
+        // states
+        bool _isApplication;
         Modi _mode = Modi.Normal;
         bool slideshowRunning = false;
+        private bool _imageLoaded = false;
 
-        // related to image dragging
+        // image dragging
         Vector kv;
         Point origin;
         Point start;
         double maxX;
         double maxY;
 
-        DispatcherTimer timerFilename = new DispatcherTimer();
+        DispatcherTimer timerMessage = new DispatcherTimer();
         DispatcherTimer timerSlideshow = new DispatcherTimer();
 
         public MainWindow()
         {
+            ReadSettings();
+            Initialize();
+        }
+
+        /// <summary>
+        /// Constructor with settings read from the app.config for showing the window in another application
+        /// </summary>
+        /// <param name="folder"></param>
+        public MainWindow(string folder)
+        {
+            _directory = folder;
+            ReadSettings();
             Initialize();
         }
 
@@ -70,22 +87,24 @@ namespace WpfImageViewer
         /// <param name="showHelpOnLoad">whether to show help screen at start</param>
         /// <param name="runAnimatedGifs">whether to show preview image or run gifs</param>
         /// <param name="backgroundColor">System.Windows.Media.Colors constant name</param>
-        /// <param name="includedFileFormats">file formats to show (e.g. ".jpg,.png")</param>
-        /// <param name="imageDuration">image duration in sec</param>
+        /// <param name="msgColor">System.Windows.Media.Colors constant name</param>
+        /// <param name="includedFileExtensions">file formats to show (e.g. ".jpg,.png")</param>
+        /// <param name="imageDurationSeconds">image duration in sec</param>
         /// <param name="fadeoutSeconds">tooltip duration in sec</param>
         /// <param name="zoomMin">minimum zoom level (e.g. 0.1)</param>
         /// <param name="zoomMax">maximum zoom level (e.g. 5.0)</param>
         /// <param name="zoomStep">zoom step in percentage (e.g. 1.25)</param>
         public MainWindow(string folder, bool showHelpOnLoad, bool runAnimatedGifs,
-            string backgroundColor, string includedFileFormats, int imageDuration, double fadeoutSeconds, double zoomMin, double zoomMax, double zoomStep)
+            string backgroundColor, string msgColor, string includedFileExtensions, int imageDurationSeconds, double fadeoutSeconds, double zoomMin, double zoomMax, double zoomStep)
         {
             _directory = folder;
             _showHelpOnLoad = showHelpOnLoad;
             _runAnimatedGifs = runAnimatedGifs;
             _backgroundColor = backgroundColor;
-            _includedFileFormats = includedFileFormats;
-            _imageDuration = imageDuration;
-            _fadeoutSeconds = fadeoutSeconds;
+            _msgColor = msgColor;
+            _includedFileExtensions = includedFileExtensions;
+            _imageDurationSeconds = imageDurationSeconds;
+            _msgFadeoutSeconds = fadeoutSeconds;
             _zoomMin = zoomMin;
             _zoomMax = zoomMax;
             _zoomStep = zoomStep;
@@ -93,52 +112,87 @@ namespace WpfImageViewer
             Initialize();
         }
 
+        private void ReadSettings()
+        {
+            var processFilename = Path.GetFileName(Process.GetCurrentProcess().MainModule.FileName).ToLower();
+            string codeBase = System.Reflection.Assembly.GetExecutingAssembly().CodeBase;
+            UriBuilder uri = new UriBuilder(codeBase);
+            string codeFilename = Path.GetFileName(Uri.UnescapeDataString(uri.Path)).ToLower();
+            _isApplication = processFilename == codeFilename;
+
+            if (_isApplication)
+            {
+                _applicationTitle = Properties.Settings.Default.ApplicationTitle;
+                _backgroundColor = Properties.Settings.Default.BackgroundColor;
+                _msgColor = Properties.Settings.Default.MsgColor;
+                _includedFileExtensions = Properties.Settings.Default.IncludedFileExtensions;
+                _msgFadeoutSeconds = Properties.Settings.Default.MsgFadeoutSeconds;
+                _zoomMin = Properties.Settings.Default.ZoomMin;
+                _zoomMax = Properties.Settings.Default.ZoomMax;
+                _zoomStep = Properties.Settings.Default.ZoomStep;
+                _imageDurationSeconds = Properties.Settings.Default.ImageDurationSeconds;
+                _showHelpOnLoad = Properties.Settings.Default.ShowHelpOnLoad;
+                _runAnimatedGifs = Properties.Settings.Default.RunAnimatedGifs;
+            }
+            else
+            {
+                Configuration conf = ConfigurationManager.OpenExeConfiguration(codeFilename);
+                ClientSettingsSection section = (ClientSettingsSection)conf.GetSection("userSettings/WpfImageViewer.Properties.Settings");
+
+                _applicationTitle = section.Settings.Get("ApplicationTitle").Value.ValueXml.InnerText;
+                _backgroundColor = section.Settings.Get("BackgroundColor").Value.ValueXml.InnerText;
+                _msgColor = section.Settings.Get("MsgColor").Value.ValueXml.InnerText;
+                _includedFileExtensions = section.Settings.Get("IncludedFileExtensions").Value.ValueXml.InnerText;
+                _msgFadeoutSeconds = double.Parse(section.Settings.Get("MsgFadeoutSeconds").Value.ValueXml.InnerText);
+                _zoomMin = double.Parse(section.Settings.Get("ZoomMin").Value.ValueXml.InnerText);
+                _zoomMax = double.Parse(section.Settings.Get("ZoomMax").Value.ValueXml.InnerText);
+                _zoomStep = double.Parse(section.Settings.Get("ZoomStep").Value.ValueXml.InnerText);
+                _imageDurationSeconds = int.Parse(section.Settings.Get("ImageDurationSeconds").Value.ValueXml.InnerText);
+                _showHelpOnLoad = bool.Parse(section.Settings.Get("ShowHelpOnLoad").Value.ValueXml.InnerText);
+                _runAnimatedGifs = bool.Parse(section.Settings.Get("RunAnimatedGifs").Value.ValueXml.InnerText);
+            }
+        }
+
         private void Initialize()
         {
             InitializeComponent();
 
-            // application title from config file
+            Window1.Title = string.IsNullOrWhiteSpace(_applicationTitle) ? "Wpf Image Viewer" : _applicationTitle;
+
+            SolidColorBrush backgroundBrush;
             try
             {
-                Window1.Title = applicationTitle;
+                backgroundBrush = (SolidColorBrush)new BrushConverter().ConvertFromString(_backgroundColor);
             }
             catch
             {
-                Window1.Title = "WpfImageViewer";
+                backgroundBrush = (SolidColorBrush)new BrushConverter().ConvertFromString("Black");
             }
+            Window1.Background = backgroundBrush;
+            Grid1.Background = backgroundBrush;
+            Border1.Background = backgroundBrush;
 
-            // application background color from config file
-            SolidColorBrush backgroundFill;
             try
             {
-                backgroundFill = (SolidColorBrush)new BrushConverter().ConvertFromString(_backgroundColor);
+                Label1.Foreground = (Brush)new BrushConverter().ConvertFromString(_msgColor);
             }
             catch
             {
-                backgroundFill = (SolidColorBrush)new BrushConverter().ConvertFromString("Black");
+                Label1.Foreground = (Brush)new BrushConverter().ConvertFromString("Green");
             }
-            Window1.Background = backgroundFill;
-            Grid1.Background = backgroundFill;
-            Border1.Background = backgroundFill;
 
-            // file formats from config file
             try
             {
-                fileFormats = _includedFileFormats.Split(',');
+                fileExtensions = _includedFileExtensions.Split(',');
             }
             catch
             {
-                fileFormats = new[] { ".jpg", ".png", ".bmp", ".jpeg", ".gif", ".tif", ".tiff" };
+                fileExtensions = new[] { ".bmp", ".gif", ".jpeg", ".jpg", ".png", ".tif", ".tiff" };
             }
 
-            PreviewKeyDown += new KeyEventHandler(HandleKey);
+            PreviewKeyDown += new KeyEventHandler(Window1_PreviewKeyDown);
         }
 
-        /// <summary>
-        /// wait until Window1 is Loaded() so we can get its size before displaying an image
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
         private void Window1_Loaded(object sender, RoutedEventArgs e)
         {
             string[] args = Environment.GetCommandLineArgs();
@@ -160,15 +214,13 @@ namespace WpfImageViewer
             }
         }
 
-        private bool _imageLoaded = false;
-
         private bool IsImageLoaded()
         {
             return _imageLoaded;
         }
 
         /// <summary>
-        /// sets the image, updates the file list/index
+        /// sets an image
         /// </summary>
         /// <param name="imagePath">(optional) use the given image path or else the file list's current index</param>
         private void SetImage(string imagePath = null)
@@ -197,25 +249,25 @@ namespace WpfImageViewer
 
                     ResetZoomLevel();
 
-                    Label1.Content = imagePath;
+                    ShowMessage(imagePath);
                 }
                 else
                 {
                     if (File.Exists(imagePath))
                     {
-                        UpdateFileList(Path.GetDirectoryName(imagePath));
+                        LoadFileList(Path.GetDirectoryName(imagePath));
                         currentFileIndex = fileList.ToList().IndexOf(imagePath);
                         SetImage();
                     }
                     else if (Directory.Exists(imagePath))
                     {
-                        UpdateFileList(imagePath);
+                        LoadFileList(imagePath);
                         currentFileIndex = 0;
                         SetImage();
                     }
                     else
                     {
-                        Label1.Content = "Invalid path: " + imagePath;
+                        ShowMessage("Invalid path: " + imagePath);
                         Image1.Source = null;
                         _imageLoaded = false;
                     }
@@ -223,53 +275,35 @@ namespace WpfImageViewer
             }
             catch
             {
-                Label1.Content = "Invalid image: " + imagePath;
+                ShowMessage("Invalid image: " + imagePath);
 
-                //still need to update fileList & index
-                var directoryName = Path.GetDirectoryName(imagePath);
-                UpdateFileList(directoryName);
-                currentFileIndex = fileList.ToList().IndexOf(imagePath);
-
-                //Image1.Source = null;
-                Image1.Visibility = Visibility.Hidden;  //source file is used for middle-click, so can't set to null
+                Image1.Visibility = Visibility.Hidden;
             }
-
-            // set the text visible and start the countdown to make it disappear
-            StartFadeTimer();
         }
 
         /// <summary>
-        /// updates the fileList with only files whose extensions are in imageFileExtensions
+        /// load a fileList, optionally only include files whose extensions are in IncludedFileExtensions
         /// </summary>
         /// <param name="directoryName"></param>
-        private void UpdateFileList(string directoryName)
+        private void LoadFileList(string directoryName)
         {
-            if (fileFormats[0] == "" || fileFormats[0] == "*")
-            {
-                fileList = Directory
+            fileList = fileExtensions[0] == "" || fileExtensions[0] == "*"
+                ? Directory
                     .EnumerateFiles(directoryName)
-                    .OrderBy(x => x, new NaturalStringComparer());
-            }
-            else
-            {
-                fileList = Directory
+                    .OrderBy(x => x, new NaturalStringComparer())
+                : Directory
                     .EnumerateFiles(directoryName)
-                    .Where(f => fileFormats.Any(f.ToLower().EndsWith))
+                    .Where(f => fileExtensions.Any(f.ToLower().EndsWith))
                     .OrderBy(x => x, new NaturalStringComparer());
-            }
         }
 
-        /// <summary>
-        /// handles keypresses
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void HandleKey(object sender, KeyEventArgs e)
+        private void Window1_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if ((_mode & Modi.HelpShown) != 0 && !(Keyboard.Modifiers == ModifierKeys.None && (e.Key == Key.H || e.Key == Key.I || e.Key == Key.F1)))
             {
                 Label2.Visibility = Visibility.Hidden;
                 _mode &= ~Modi.HelpShown;
+                return;
             }
 
             if (Keyboard.Modifiers == ModifierKeys.None)
@@ -293,19 +327,19 @@ namespace WpfImageViewer
                         }
                         break;
 
-                    case Key.Right:
-                        if (currentFileIndex < fileList.Count() - 1)
+                    case Key.Left:
+                        if (currentFileIndex > 0)
                         {
-                            currentFileIndex++;
+                            currentFileIndex--;
                             ResetZoomLevel();
                             SetImage();
                         }
                         break;
 
-                    case Key.Left:
-                        if (currentFileIndex > 0)
+                    case Key.Right:
+                        if (currentFileIndex < fileList.Count() - 1)
                         {
-                            currentFileIndex--;
+                            currentFileIndex++;
                             ResetZoomLevel();
                             SetImage();
                         }
@@ -358,14 +392,14 @@ namespace WpfImageViewer
                         break;
 
                     case Key.PageDown:
-                        if (_imageDuration > 1) _imageDuration--;
-                        ShowMessage($"Image duration: {_imageDuration} sec");
+                        if (_imageDurationSeconds > 1) _imageDurationSeconds--;
+                        ShowMessage($"Image duration: {_imageDurationSeconds} sec");
                         StartSlideshow(false);
                         break;
 
                     case Key.PageUp:
-                        if (_imageDuration < 30) _imageDuration++;
-                        ShowMessage($"Image duration: {_imageDuration} sec");
+                        if (_imageDurationSeconds < 30) _imageDurationSeconds++;
+                        ShowMessage($"Image duration: {_imageDurationSeconds} sec");
                         StartSlideshow(false);
                         break;
 
@@ -433,7 +467,7 @@ namespace WpfImageViewer
         }
 
         /// <summary>
-        /// handles mouse buttons on the Grid
+        /// handles mouse click functionality
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -464,21 +498,20 @@ namespace WpfImageViewer
                     if (e.ClickCount == 2)
                     {
                         Clipboard.SetText(imagePath);
-                        Label1.Content = "Image path copied to clipboard";
+                        ShowMessage("Image path copied to clipboard");
                     }
                     else
                     {
                         var imageDir = Path.GetDirectoryName(imagePath);
                         Clipboard.SetText(imageDir);
-                        Label1.Content = "Directory path copied to clipboard";
+                        ShowMessage("Directory path copied to clipboard");
                     }
-                    StartFadeTimer();
                 }
             }
         }
 
         /// <summary>
-        /// handles mousewheel scrolling
+        /// handles mouse wheel zooming
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -491,7 +524,7 @@ namespace WpfImageViewer
         }
 
         /// <summary>
-        /// handles clicks on an image
+        /// handles the start of a drag operation
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -506,7 +539,7 @@ namespace WpfImageViewer
         }
 
         /// <summary>
-        /// handles mouse moves on the image
+        /// handles dragging the image
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -554,7 +587,7 @@ namespace WpfImageViewer
         }
 
         /// <summary>
-        /// releases the mouse cursor
+        /// releases the mouse capture
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -566,16 +599,16 @@ namespace WpfImageViewer
         /// <summary>
         /// uses a scale transform to zoom
         /// </summary>
-        /// <param name="eDelta">-1/1 - smaller/bigger</param>
-        private void Zoom(double eDelta)
+        /// <param name="delta">-1/1 - smaller/bigger</param>
+        private void Zoom(double delta)
         {
             var st = (ScaleTransform)((TransformGroup)Image1.RenderTransform).Children.First(tr => tr is ScaleTransform);
 
-            if (eDelta < 0 && st.ScaleX < _zoomMin || eDelta > 0 && st.ScaleX > _zoomMax) return;
+            if (delta < 0 && st.ScaleX < _zoomMin || delta > 0 && st.ScaleX > _zoomMax) return;
 
             var tt = (TranslateTransform)((TransformGroup)Image1.RenderTransform).Children.First(tr => tr is TranslateTransform);
 
-            double zoom = eDelta > 0 ? _zoomStep : 1.0 / _zoomStep;
+            double zoom = delta > 0 ? _zoomStep : 1.0 / _zoomStep;
             st.ScaleX = st.ScaleY *= zoom;
 
             if (st.ScaleX == 1.0)
@@ -589,12 +622,15 @@ namespace WpfImageViewer
             tt.Y = maxY == 0 ? 0 : (Math.Abs(tt.Y) > maxY) ? Math.Sign(tt.Y) * maxY : tt.Y;
         }
 
+        /// <summary>
+        /// shows an overlay with help text
+        /// </summary>
         private void ShopHelpText()
         {
             Label2.Content = "General\n" +
                 "---------\n" +
                 "H/I/F1  -  Show this help screen\n" +
-                "ESC       -  Close help / End slideshow / Close application\n" +
+                "ESC       -  Close help / End slideshow / Close " + (_isApplication ? "application" : "window") + "\n" +
                 "Space   -  End zoom mode / Start/Stop slideshow\n" +
                 "\n" +
                 "Mouse Navigation\n" +
@@ -624,42 +660,45 @@ namespace WpfImageViewer
             _mode |= Modi.HelpShown;
         }
 
+        /// <summary>
+        /// shows the message text and starts a fadeout timer
+        /// </summary>
+        /// <param name="text"></param>
         private void ShowMessage(string text)
         {
             Label1.Content = text;
-            StartFadeTimer();
+            StartMessageFadeoutTimer();
         }
 
         /// <summary>
-        /// starts a countdown to hide the status text after some time
+        /// starts a timer to hide the message text after specified period
         /// </summary>
-        private void StartFadeTimer()
+        private void StartMessageFadeoutTimer()
         {
-            // zero value in config file disables status text
-            if (_fadeoutSeconds == 0) return;
+            // zero value disables status text
+            if (_msgFadeoutSeconds == 0) return;
 
             Label1.Visibility = Visibility.Visible;
 
-            // negative value in config file disables fadeout
-            if (_fadeoutSeconds < 0) return;
+            // negative value disables fadeout
+            if (_msgFadeoutSeconds < 0) return;
 
-            timerFilename.Interval = TimeSpan.FromSeconds(_fadeoutSeconds);
-            timerFilename.Tick += TimerFilename_Tick;
-            timerFilename.Start();
+            timerMessage.Interval = TimeSpan.FromSeconds(_msgFadeoutSeconds);
+            timerMessage.Tick += TimerMessage_Tick;
+            timerMessage.Start();
         }
 
-        /// <summary>
-        /// hides the text and stops the timer
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void TimerFilename_Tick(object sender, EventArgs e)
+        private void TimerMessage_Tick(object sender, EventArgs e)
         {
-            timerFilename.Stop();
-            timerFilename.Tick -= TimerFilename_Tick;
+            timerMessage.Stop();
+            timerMessage.Tick -= TimerMessage_Tick;
             Label1.Visibility = Visibility.Hidden;
         }
 
+        /// <summary>
+        /// starts the slideshow
+        /// </summary>
+        /// <param name="showMessage">show message only on real slideshow starts</param>
         private void StartSlideshow(bool showMessage)
         {
             if (slideshowRunning)
@@ -672,11 +711,15 @@ namespace WpfImageViewer
             }
             _mode |= Modi.Slideshow;
             slideshowRunning = true;
-            timerSlideshow.Interval = TimeSpan.FromSeconds(_imageDuration);
+            timerSlideshow.Interval = TimeSpan.FromSeconds(_imageDurationSeconds);
             timerSlideshow.Tick += TimerSlideshow_Tick;
             timerSlideshow.Start();
         }
 
+        /// <summary>
+        /// pauses or stops the slideshow
+        /// </summary>
+        /// <param name="mode">0 - stop for restart, 1 - pause, 2 - stop</param>
         private void StopSlideshow(int mode)
         {
             slideshowRunning = false;

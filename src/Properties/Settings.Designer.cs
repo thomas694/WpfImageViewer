@@ -34,43 +34,127 @@ namespace WpfImageViewer.Properties {
                 this["ApplicationTitle"] = value;
             }
         }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("2")]
-        public double FadeoutSeconds {
-            get {
-                return ((double)(this["FadeoutSeconds"]));
-            }
-            set {
-                this["FadeoutSeconds"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute(".bmp,.gif,.jpeg,.jpg,.png,.tif,.tiff")]
-        public string IncludedFileFormats {
-            get {
-                return ((string)(this["IncludedFileFormats"]));
-            }
-            set {
-                this["IncludedFileFormats"] = value;
-            }
-        }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("Black")]
-        public string BackgroundColor {
-            get {
+        public string BackgroundColor
+        {
+            get
+            {
                 return ((string)(this["BackgroundColor"]));
             }
-            set {
+            set
+            {
                 this["BackgroundColor"] = value;
             }
         }
-        
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("2")]
+        public int ImageDurationSeconds
+        {
+            get
+            {
+                return ((int)(this["ImageDurationSeconds"]));
+            }
+            set
+            {
+                this["ImageDurationSeconds"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute(".bmp,.gif,.jpeg,.jpg,.png,.tif,.tiff")]
+        public string IncludedFileExtensions
+        {
+            get
+            {
+                return ((string)(this["IncludedFileExtensions"]));
+            }
+            set
+            {
+                this["IncludedFileExtensions"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Green")]
+        public string MsgColor
+        {
+            get
+            {
+                return ((string)(this["MsgColor"]));
+            }
+            set
+            {
+                this["MsgColor"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("2")]
+        public double MsgFadeoutSeconds
+        {
+            get
+            {
+                return ((double)(this["MsgFadeoutSeconds"]));
+            }
+            set
+            {
+                this["MsgFadeoutSeconds"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool RunAnimatedGifs
+        {
+            get
+            {
+                return ((bool)(this["RunAnimatedGifs"]));
+            }
+            set
+            {
+                this["RunAnimatedGifs"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool ShowHelpOnLoad
+        {
+            get
+            {
+                return ((bool)(this["ShowHelpOnLoad"]));
+            }
+            set
+            {
+                this["ShowHelpOnLoad"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("5")]
+        public double ZoomMax
+        {
+            get
+            {
+                return ((double)(this["ZoomMax"]));
+            }
+            set
+            {
+                this["ZoomMax"] = value;
+            }
+        }
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("0.1")]
@@ -85,18 +169,6 @@ namespace WpfImageViewer.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("5")]
-        public double ZoomMax {
-            get {
-                return ((double)(this["ZoomMax"]));
-            }
-            set {
-                this["ZoomMax"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("1.25")]
         public double ZoomStep {
             get {
@@ -104,42 +176,6 @@ namespace WpfImageViewer.Properties {
             }
             set {
                 this["ZoomStep"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("False")]
-        public bool ShowHelpOnLoad {
-            get {
-                return ((bool)(this["ShowHelpOnLoad"]));
-            }
-            set {
-                this["ShowHelpOnLoad"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("True")]
-        public bool RunAnimatedGifs {
-            get {
-                return ((bool)(this["RunAnimatedGifs"]));
-            }
-            set {
-                this["RunAnimatedGifs"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("2")]
-        public int ImageDuration {
-            get {
-                return ((int)(this["ImageDuration"]));
-            }
-            set {
-                this["ImageDuration"] = value;
             }
         }
     }

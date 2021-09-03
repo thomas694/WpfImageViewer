@@ -1,13 +1,4 @@
 -----------------------------------------------------------------------------
-        applies to: 
-        - parts of WpfImageViewer, Copyright 2021 Josh Gunderson
------------------------------------------------------------------------------
-
-This source code is based in parts on adapted source code parts of 
-WpfImageViewer by Josh Gunderson. Permission to do so has been expressly 
-given.
-
------------------------------------------------------------------------------
                         Apache License, Version 2.0
         applies to: 
         - WpfAnimatedGif, Copyright 2019 Thomas Levesque

@@ -9,7 +9,7 @@
                    MouseLeftButtonUp="Image1_MouseLeftButtonUp"
                    Width="{Binding ActualWidth, ElementName=Border1}" Height="{Binding ActualHeight, ElementName=Border1}"/>
         </Border>
-        <Label x:Name="Label1" Content="" Margin="10,0,10,10" VerticalAlignment="Bottom" Foreground="Green" Visibility="Hidden">
+        <Label x:Name="Label1" Content="" Margin="10,0,10,10" VerticalAlignment="Bottom" Visibility="Hidden">
             <Label.Effect>
                 <DropShadowEffect ShadowDepth="0.5" Direction="0" BlurRadius="3" Opacity="0.5" RenderingBias="Quality"/>
             </Label.Effect>
