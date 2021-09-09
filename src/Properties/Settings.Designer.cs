@@ -52,6 +52,21 @@ namespace WpfImageViewer.Properties {
 
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool CloseOnLostFocus
+        {
+            get
+            {
+                return ((bool)(this["CloseOnLostFocus"]));
+            }
+            set
+            {
+                this["CloseOnLostFocus"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("2")]
         public int ImageDurationSeconds
         {

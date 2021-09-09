@@ -5,6 +5,7 @@ using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -33,7 +34,7 @@ namespace WpfImageViewer
         string _backgroundColor;
         string _msgColor;
         string _includedFileExtensions;
-        string[] fileExtensions;
+        string[] _fileExtensions;
         double _msgFadeoutSeconds;
         double _zoomMin;
         double _zoomMax;
@@ -41,27 +42,30 @@ namespace WpfImageViewer
         int _imageDurationSeconds;
         bool _showHelpOnLoad;
         bool _runAnimatedGifs;
+        bool _closeOnLostFocus;
 
         // file navigation
-        string _directory;
-        IEnumerable<string> fileList = new List<string>();
-        int currentFileIndex;
+        readonly string _directory;
+        IEnumerable<string> _fileList = new List<string>();
+        int _currentFileIndex;
 
         // states
         bool _isApplication;
+        bool _isFileDialogOpen;
         Modi _mode = Modi.Normal;
-        bool slideshowRunning = false;
-        private bool _imageLoaded = false;
+        bool _isSlideshowRunning = false;
+        bool _isImageLoaded = false;
+        bool _isClosing;
 
         // image dragging
-        Vector kv;
-        Point origin;
-        Point start;
-        double maxX;
-        double maxY;
+        Vector _kv;
+        Point _origin;
+        Point _start;
+        double _maxX;
+        double _maxY;
 
-        DispatcherTimer timerMessage = new DispatcherTimer();
-        DispatcherTimer timerSlideshow = new DispatcherTimer();
+        readonly DispatcherTimer _timerMessage = new DispatcherTimer();
+        readonly DispatcherTimer _timerSlideshow = new DispatcherTimer();
 
         public MainWindow()
         {
@@ -94,12 +98,13 @@ namespace WpfImageViewer
         /// <param name="zoomMin">minimum zoom level (e.g. 0.1)</param>
         /// <param name="zoomMax">maximum zoom level (e.g. 5.0)</param>
         /// <param name="zoomStep">zoom step in percentage (e.g. 1.25)</param>
-        public MainWindow(string folder, bool showHelpOnLoad, bool runAnimatedGifs,
+        public MainWindow(string folder, bool showHelpOnLoad, bool runAnimatedGifs, bool closeOnLostFocus,
             string backgroundColor, string msgColor, string includedFileExtensions, int imageDurationSeconds, double fadeoutSeconds, double zoomMin, double zoomMax, double zoomStep)
         {
             _directory = folder;
             _showHelpOnLoad = showHelpOnLoad;
             _runAnimatedGifs = runAnimatedGifs;
+            _closeOnLostFocus = closeOnLostFocus;
             _backgroundColor = backgroundColor;
             _msgColor = msgColor;
             _includedFileExtensions = includedFileExtensions;
@@ -110,6 +115,57 @@ namespace WpfImageViewer
             _zoomStep = zoomStep;
 
             Initialize();
+        }
+
+
+        /// <summary>
+        /// Run modal window asynchronously and let the calling application continue its background work
+        /// </summary>
+        /// <param name="owner">specify owner window or null</param>
+        /// <returns></returns>
+        public async Task<bool?> ShowDialogAsync(Window owner)
+        {
+            await Task.Yield();
+            if (owner != null)
+            {
+                Owner = owner;
+                Owner.ShowInTaskbar = false;
+            }
+            Closing += Window1_Closing;
+            return ShowDialog();
+        }
+
+        private void Window1_Closing(object sender, EventArgs e)
+        {
+            _isClosing = true;
+            if (Owner != null)
+            {
+                Owner.ShowInTaskbar = true;
+            }
+        }
+
+        private void Window1_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+        {
+            if (_isSlideshowRunning)
+            {
+                StopSlideshow(1);
+            }
+            if (_isFileDialogOpen)
+            {
+                return;
+            }
+            else if (_closeOnLostFocus && !_isClosing)
+            {
+                Close();
+            }
+        }
+
+        private void Window1_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+        {
+            if ((_mode & Modi.Slideshow) != 0)
+            {
+                StartSlideshow(true);
+            }
         }
 
         private void ReadSettings()
@@ -124,15 +180,16 @@ namespace WpfImageViewer
             {
                 _applicationTitle = Properties.Settings.Default.ApplicationTitle;
                 _backgroundColor = Properties.Settings.Default.BackgroundColor;
-                _msgColor = Properties.Settings.Default.MsgColor;
-                _includedFileExtensions = Properties.Settings.Default.IncludedFileExtensions;
-                _msgFadeoutSeconds = Properties.Settings.Default.MsgFadeoutSeconds;
-                _zoomMin = Properties.Settings.Default.ZoomMin;
-                _zoomMax = Properties.Settings.Default.ZoomMax;
-                _zoomStep = Properties.Settings.Default.ZoomStep;
+                _closeOnLostFocus = Properties.Settings.Default.CloseOnLostFocus;
                 _imageDurationSeconds = Properties.Settings.Default.ImageDurationSeconds;
-                _showHelpOnLoad = Properties.Settings.Default.ShowHelpOnLoad;
+                _includedFileExtensions = Properties.Settings.Default.IncludedFileExtensions;
+                _msgColor = Properties.Settings.Default.MsgColor;
+                _msgFadeoutSeconds = Properties.Settings.Default.MsgFadeoutSeconds;
                 _runAnimatedGifs = Properties.Settings.Default.RunAnimatedGifs;
+                _showHelpOnLoad = Properties.Settings.Default.ShowHelpOnLoad;
+                _zoomMax = Properties.Settings.Default.ZoomMax;
+                _zoomMin = Properties.Settings.Default.ZoomMin;
+                _zoomStep = Properties.Settings.Default.ZoomStep;
             }
             else
             {
@@ -141,15 +198,16 @@ namespace WpfImageViewer
 
                 _applicationTitle = section.Settings.Get("ApplicationTitle").Value.ValueXml.InnerText;
                 _backgroundColor = section.Settings.Get("BackgroundColor").Value.ValueXml.InnerText;
-                _msgColor = section.Settings.Get("MsgColor").Value.ValueXml.InnerText;
-                _includedFileExtensions = section.Settings.Get("IncludedFileExtensions").Value.ValueXml.InnerText;
-                _msgFadeoutSeconds = double.Parse(section.Settings.Get("MsgFadeoutSeconds").Value.ValueXml.InnerText);
-                _zoomMin = double.Parse(section.Settings.Get("ZoomMin").Value.ValueXml.InnerText);
-                _zoomMax = double.Parse(section.Settings.Get("ZoomMax").Value.ValueXml.InnerText);
-                _zoomStep = double.Parse(section.Settings.Get("ZoomStep").Value.ValueXml.InnerText);
+                _closeOnLostFocus = bool.Parse(section.Settings.Get("CloseOnLostFocus").Value.ValueXml.InnerText);
                 _imageDurationSeconds = int.Parse(section.Settings.Get("ImageDurationSeconds").Value.ValueXml.InnerText);
-                _showHelpOnLoad = bool.Parse(section.Settings.Get("ShowHelpOnLoad").Value.ValueXml.InnerText);
+                _includedFileExtensions = section.Settings.Get("IncludedFileExtensions").Value.ValueXml.InnerText;
+                _msgColor = section.Settings.Get("MsgColor").Value.ValueXml.InnerText;
+                _msgFadeoutSeconds = double.Parse(section.Settings.Get("MsgFadeoutSeconds").Value.ValueXml.InnerText);
                 _runAnimatedGifs = bool.Parse(section.Settings.Get("RunAnimatedGifs").Value.ValueXml.InnerText);
+                _showHelpOnLoad = bool.Parse(section.Settings.Get("ShowHelpOnLoad").Value.ValueXml.InnerText);
+                _zoomMax = double.Parse(section.Settings.Get("ZoomMax").Value.ValueXml.InnerText);
+                _zoomMin = double.Parse(section.Settings.Get("ZoomMin").Value.ValueXml.InnerText);
+                _zoomStep = double.Parse(section.Settings.Get("ZoomStep").Value.ValueXml.InnerText);
             }
         }
 
@@ -183,14 +241,16 @@ namespace WpfImageViewer
 
             try
             {
-                fileExtensions = _includedFileExtensions.Split(',');
+                _fileExtensions = _includedFileExtensions.Split(',');
             }
             catch
             {
-                fileExtensions = new[] { ".bmp", ".gif", ".jpeg", ".jpg", ".png", ".tif", ".tiff" };
+                _fileExtensions = new[] { ".bmp", ".gif", ".jpeg", ".jpg", ".png", ".tif", ".tiff" };
             }
 
-            PreviewKeyDown += new KeyEventHandler(Window1_PreviewKeyDown);
+            PreviewKeyDown += Window1_PreviewKeyDown;
+            LostKeyboardFocus += Window1_LostKeyboardFocus;
+            GotKeyboardFocus += Window1_GotKeyboardFocus;
         }
 
         private void Window1_Loaded(object sender, RoutedEventArgs e)
@@ -216,7 +276,7 @@ namespace WpfImageViewer
 
         private bool IsImageLoaded()
         {
-            return _imageLoaded;
+            return _isImageLoaded;
         }
 
         /// <summary>
@@ -229,7 +289,7 @@ namespace WpfImageViewer
             {
                 if (string.IsNullOrEmpty(imagePath))
                 {
-                    imagePath = fileList.ElementAt(currentFileIndex);
+                    imagePath = _fileList.ElementAt(_currentFileIndex);
 
                     Uri imageUri = new Uri(imagePath);
                     BitmapImage imageBitmap = new BitmapImage(imageUri);
@@ -245,7 +305,7 @@ namespace WpfImageViewer
                         Image1.Source = imageBitmap;
                     }
                     Image1.Visibility = Visibility.Visible;
-                    _imageLoaded = true;
+                    _isImageLoaded = true;
 
                     ResetZoomLevel();
 
@@ -256,20 +316,20 @@ namespace WpfImageViewer
                     if (File.Exists(imagePath))
                     {
                         LoadFileList(Path.GetDirectoryName(imagePath));
-                        currentFileIndex = fileList.ToList().IndexOf(imagePath);
+                        _currentFileIndex = _fileList.ToList().IndexOf(imagePath);
                         SetImage();
                     }
                     else if (Directory.Exists(imagePath))
                     {
                         LoadFileList(imagePath);
-                        currentFileIndex = 0;
+                        _currentFileIndex = 0;
                         SetImage();
                     }
                     else
                     {
                         ShowMessage("Invalid path: " + imagePath);
                         Image1.Source = null;
-                        _imageLoaded = false;
+                        _isImageLoaded = false;
                     }
                 }
             }
@@ -287,13 +347,13 @@ namespace WpfImageViewer
         /// <param name="directoryName"></param>
         private void LoadFileList(string directoryName)
         {
-            fileList = fileExtensions[0] == "" || fileExtensions[0] == "*"
+            _fileList = _fileExtensions[0] == "" || _fileExtensions[0] == "*"
                 ? Directory
                     .EnumerateFiles(directoryName)
                     .OrderBy(x => x, new NaturalStringComparer())
                 : Directory
                     .EnumerateFiles(directoryName)
-                    .Where(f => fileExtensions.Any(f.ToLower().EndsWith))
+                    .Where(f => _fileExtensions.Any(f.ToLower().EndsWith))
                     .OrderBy(x => x, new NaturalStringComparer());
         }
 
@@ -328,36 +388,36 @@ namespace WpfImageViewer
                         break;
 
                     case Key.Left:
-                        if (currentFileIndex > 0)
+                        if (_currentFileIndex > 0)
                         {
-                            currentFileIndex--;
+                            _currentFileIndex--;
                             ResetZoomLevel();
                             SetImage();
                         }
                         break;
 
                     case Key.Right:
-                        if (currentFileIndex < fileList.Count() - 1)
+                        if (_currentFileIndex < _fileList.Count() - 1)
                         {
-                            currentFileIndex++;
+                            _currentFileIndex++;
                             ResetZoomLevel();
                             SetImage();
                         }
                         break;
 
                     case Key.Home:
-                        if (currentFileIndex > 0)
+                        if (_currentFileIndex > 0)
                         {
-                            currentFileIndex = 0;
+                            _currentFileIndex = 0;
                             ResetZoomLevel();
                             SetImage();
                         }
                         break;
 
                     case Key.End:
-                        if (currentFileIndex < fileList.Count() - 1)
+                        if (_currentFileIndex < _fileList.Count() - 1)
                         {
-                            currentFileIndex = fileList.Count() - 1;
+                            _currentFileIndex = _fileList.Count() - 1;
                             ResetZoomLevel();
                             SetImage();
                         }
@@ -370,7 +430,7 @@ namespace WpfImageViewer
                         }
                         else
                         {
-                            if (slideshowRunning)
+                            if (_isSlideshowRunning)
                             {
                                 StopSlideshow(1);
                             }
@@ -413,26 +473,26 @@ namespace WpfImageViewer
                 {
                     case Key.Left:
                         AdjustKeyboardVector(-1, 0);
-                        MoveToNewPosition(kv);
+                        MoveToNewPosition(_kv);
                         break;
                     case Key.Right:
                         AdjustKeyboardVector(1, 0);
-                        MoveToNewPosition(kv);
+                        MoveToNewPosition(_kv);
                         break;
                     case Key.Up:
                         AdjustKeyboardVector(0, -1);
-                        MoveToNewPosition(kv);
+                        MoveToNewPosition(_kv);
                         break;
                     case Key.Down:
                         AdjustKeyboardVector(0, 1);
-                        MoveToNewPosition(kv);
+                        MoveToNewPosition(_kv);
                         break;
                     default:
                         if (IsImageLoaded())
                         {
                             var tt = (TranslateTransform)((TransformGroup)Image1.RenderTransform).Children.First(tr => tr is TranslateTransform);
-                            origin = new Point(0, 0);
-                            kv = new Vector(-tt.X, -tt.Y);
+                            _origin = new Point(0, 0);
+                            _kv = new Vector(-tt.X, -tt.Y);
                         }
                         break;
                 }
@@ -446,8 +506,8 @@ namespace WpfImageViewer
         {
             var rect = new Rect(Image1.RenderSize);
             var bounds = Image1.TransformToAncestor(Border1).TransformBounds(rect);
-            maxX = (bounds.Width > Window1.Width) ? (bounds.Width - Window1.Width) / 2.0 : 0;
-            maxY = (bounds.Height > Window1.Height) ? (bounds.Height - Window1.Height) / 2.0 : 0;
+            _maxX = (bounds.Width > Window1.Width) ? (bounds.Width - Window1.Width) / 2.0 : 0;
+            _maxY = (bounds.Height > Window1.Height) ? (bounds.Height - Window1.Height) / 2.0 : 0;
         }
 
         /// <summary>
@@ -476,17 +536,19 @@ namespace WpfImageViewer
             string imagePath = null;
             if (e.ChangedButton == MouseButton.Left && e.ClickCount == 2)
             {
+                _isFileDialogOpen = true;
                 OpenFileDialog openFileDialog = new OpenFileDialog();
                 if (openFileDialog.ShowDialog() == true)
                 {
                     imagePath = openFileDialog.FileName;
                     SetImage(imagePath);
                 }
+                _isFileDialogOpen = false;
             }
 
             if (IsImageLoaded())
             {
-                if (imagePath == null) imagePath = fileList.ElementAt(currentFileIndex);
+                if (imagePath == null) imagePath = _fileList.ElementAt(_currentFileIndex);
 
                 if (e.ChangedButton == MouseButton.Middle)
                 {
@@ -533,8 +595,8 @@ namespace WpfImageViewer
             if (IsImageLoaded() && Image1.CaptureMouse())
             {
                 var tt = (TranslateTransform)((TransformGroup)Image1.RenderTransform).Children.First(tr => tr is TranslateTransform);
-                start = e.GetPosition(Border1);
-                origin = new Point(tt.X, tt.Y);
+                _start = e.GetPosition(Border1);
+                _origin = new Point(tt.X, tt.Y);
             }
         }
 
@@ -547,7 +609,7 @@ namespace WpfImageViewer
         {
             if (Image1.IsMouseCaptured)
             {
-                Vector v = start - e.GetPosition(Border1);
+                Vector v = _start - e.GetPosition(Border1);
                 MoveToNewPosition(v);
             }
         }
@@ -561,17 +623,17 @@ namespace WpfImageViewer
         {
             if (x != 0)
             {
-                if (Math.Abs(origin.X - kv.X - x) < maxX)
-                    kv.X += Math.Sign(x) * 10;
-                else if (Math.Abs(origin.X - kv.X - x) >= maxX)
-                    kv.X += Math.Sign(x) * (maxX - Math.Abs(origin.X - kv.X));
+                if (Math.Abs(_origin.X - _kv.X - x) < _maxX)
+                    _kv.X += Math.Sign(x) * 10;
+                else if (Math.Abs(_origin.X - _kv.X - x) >= _maxX)
+                    _kv.X += Math.Sign(x) * (_maxX - Math.Abs(_origin.X - _kv.X));
             }
             else if (y != 0)
             {
-                if (Math.Abs(origin.Y - kv.Y - y) < maxY)
-                    kv.Y += Math.Sign(y) * 10;
-                else if (Math.Abs(origin.Y - kv.Y - y) >= maxY)
-                    kv.Y += Math.Sign(y) * (maxY - Math.Abs(origin.Y - kv.Y));
+                if (Math.Abs(_origin.Y - _kv.Y - y) < _maxY)
+                    _kv.Y += Math.Sign(y) * 10;
+                else if (Math.Abs(_origin.Y - _kv.Y - y) >= _maxY)
+                    _kv.Y += Math.Sign(y) * (_maxY - Math.Abs(_origin.Y - _kv.Y));
             }
         }
 
@@ -582,8 +644,8 @@ namespace WpfImageViewer
         private void MoveToNewPosition(Vector v)
         {
             var tt = (TranslateTransform)((TransformGroup)Image1.RenderTransform).Children.First(tr => tr is TranslateTransform);
-            tt.X = maxX == 0 ? tt.X : (Math.Abs(origin.X - v.X) >= maxX) ? Math.Sign(origin.X - v.X) * maxX : origin.X - v.X;
-            tt.Y = maxY == 0 ? tt.Y : (Math.Abs(origin.Y - v.Y) >= maxY) ? Math.Sign(origin.Y - v.Y) * maxY : origin.Y - v.Y;
+            tt.X = _maxX == 0 ? tt.X : (Math.Abs(_origin.X - v.X) >= _maxX) ? Math.Sign(_origin.X - v.X) * _maxX : _origin.X - v.X;
+            tt.Y = _maxY == 0 ? tt.Y : (Math.Abs(_origin.Y - v.Y) >= _maxY) ? Math.Sign(_origin.Y - v.Y) * _maxY : _origin.Y - v.Y;
         }
 
         /// <summary>
@@ -618,8 +680,8 @@ namespace WpfImageViewer
 
             SetMaxPanValues();
 
-            tt.X = maxX == 0 ? 0 : (Math.Abs(tt.X) > maxX) ? Math.Sign(tt.X) * maxX : tt.X;
-            tt.Y = maxY == 0 ? 0 : (Math.Abs(tt.Y) > maxY) ? Math.Sign(tt.Y) * maxY : tt.Y;
+            tt.X = _maxX == 0 ? 0 : (Math.Abs(tt.X) > _maxX) ? Math.Sign(tt.X) * _maxX : tt.X;
+            tt.Y = _maxY == 0 ? 0 : (Math.Abs(tt.Y) > _maxY) ? Math.Sign(tt.Y) * _maxY : tt.Y;
         }
 
         /// <summary>
@@ -683,15 +745,15 @@ namespace WpfImageViewer
             // negative value disables fadeout
             if (_msgFadeoutSeconds < 0) return;
 
-            timerMessage.Interval = TimeSpan.FromSeconds(_msgFadeoutSeconds);
-            timerMessage.Tick += TimerMessage_Tick;
-            timerMessage.Start();
+            _timerMessage.Interval = TimeSpan.FromSeconds(_msgFadeoutSeconds);
+            _timerMessage.Tick += TimerMessage_Tick;
+            _timerMessage.Start();
         }
 
         private void TimerMessage_Tick(object sender, EventArgs e)
         {
-            timerMessage.Stop();
-            timerMessage.Tick -= TimerMessage_Tick;
+            _timerMessage.Stop();
+            _timerMessage.Tick -= TimerMessage_Tick;
             Label1.Visibility = Visibility.Hidden;
         }
 
@@ -701,7 +763,7 @@ namespace WpfImageViewer
         /// <param name="showMessage">show message only on real slideshow starts</param>
         private void StartSlideshow(bool showMessage)
         {
-            if (slideshowRunning)
+            if (_isSlideshowRunning)
             {
                 StopSlideshow(0);
             }
@@ -710,10 +772,10 @@ namespace WpfImageViewer
                 ShowMessage("Slideshow started");
             }
             _mode |= Modi.Slideshow;
-            slideshowRunning = true;
-            timerSlideshow.Interval = TimeSpan.FromSeconds(_imageDurationSeconds);
-            timerSlideshow.Tick += TimerSlideshow_Tick;
-            timerSlideshow.Start();
+            _isSlideshowRunning = true;
+            _timerSlideshow.Interval = TimeSpan.FromSeconds(_imageDurationSeconds);
+            _timerSlideshow.Tick += TimerSlideshow_Tick;
+            _timerSlideshow.Start();
         }
 
         /// <summary>
@@ -722,7 +784,7 @@ namespace WpfImageViewer
         /// <param name="mode">0 - stop for restart, 1 - pause, 2 - stop</param>
         private void StopSlideshow(int mode)
         {
-            slideshowRunning = false;
+            _isSlideshowRunning = false;
 
             if (mode == 1)
             {
@@ -734,15 +796,15 @@ namespace WpfImageViewer
                 ShowMessage("Slideshow stopped");
             }
 
-            timerSlideshow.Stop();
-            timerSlideshow.Tick -= TimerSlideshow_Tick;
+            _timerSlideshow.Stop();
+            _timerSlideshow.Tick -= TimerSlideshow_Tick;
         }
 
         private void TimerSlideshow_Tick(object sender, EventArgs e)
         {
-            if (currentFileIndex < fileList.Count() - 1)
+            if (_currentFileIndex < _fileList.Count() - 1)
             {
-                currentFileIndex++;
+                _currentFileIndex++;
                 SetImage();
             }
             else

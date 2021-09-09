@@ -42,6 +42,9 @@ Some settings can be overridden in WpfImageViewer.exe.config.
 * BackgroundColor
     * set background color using a color name
     * default: Black
+* CloseOnLostFocus
+    * closes the application if no longer in focus
+    * default: True
 * ImageDurationSeconds
     * number of seconds to show the image in slideshow mode
     * default: 2 seconds
@@ -83,8 +86,8 @@ wnd.ShowDialog();
 optionally you can use an overloaded constructor and specify non-default settings
 ```csharp
 // declaration of overloaded constructor
-WpfImageViewer.MainWindow wnd = new WpfImageViewer.MainWindow(string folder, bool showHelpOnLoad, bool runAnimatedGifs,
-    string backgroundColor, string includedFileFormats, int imageDuration, double fadeoutSeconds, double zoomMin, double zoomMax, double zoomStep)
+WpfImageViewer.MainWindow wnd = new WpfImageViewer.MainWindow(string folder, bool showHelpOnLoad, bool runAnimatedGifs, bool closeOnLostFocus,
+    string backgroundColor, string msgColor, string includedFileExtensions, int imageDurationSeconds, double fadeoutSeconds, double zoomMin, double zoomMax, double zoomStep)
 ```
 or if you only want to specify the folder to load:
 ```csharp

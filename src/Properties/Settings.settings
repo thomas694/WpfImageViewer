@@ -8,6 +8,9 @@
     <Setting Name="BackgroundColor" Type="System.String" Scope="User">
       <Value Profile="(Default)">Black</Value>
     </Setting>
+    <Setting Name="CloseOnLostFocus" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
     <Setting Name="MsgColor" Type="System.String" Scope="User">
       <Value Profile="(Default)">Green</Value>
     </Setting>
