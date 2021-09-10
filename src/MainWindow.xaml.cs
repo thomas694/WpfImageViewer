@@ -5,13 +5,14 @@ using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using WpfAnimatedGif;
 
 namespace WpfImageViewer
 {
@@ -63,9 +64,13 @@ namespace WpfImageViewer
         Point _start;
         double _maxX;
         double _maxY;
+        double _mediaWidth;
+        double _mediaHeight;
 
         readonly DispatcherTimer _timerMessage = new DispatcherTimer();
         readonly DispatcherTimer _timerSlideshow = new DispatcherTimer();
+
+        readonly MediaViewModel _mediaViewModel = new MediaViewModel();
 
         public MainWindow()
         {
@@ -215,6 +220,9 @@ namespace WpfImageViewer
         {
             InitializeComponent();
 
+
+            DataContext = _mediaViewModel;
+
             Window1.Title = string.IsNullOrWhiteSpace(_applicationTitle) ? "Wpf Image Viewer" : _applicationTitle;
 
             SolidColorBrush backgroundBrush;
@@ -251,6 +259,7 @@ namespace WpfImageViewer
             PreviewKeyDown += Window1_PreviewKeyDown;
             LostKeyboardFocus += Window1_LostKeyboardFocus;
             GotKeyboardFocus += Window1_GotKeyboardFocus;
+            Closing += Window1_Closing;
         }
 
         private void Window1_Loaded(object sender, RoutedEventArgs e)
@@ -274,9 +283,16 @@ namespace WpfImageViewer
             }
         }
 
-        private bool IsImageLoaded()
+        private void SwitchableMediaElement_MediaOpened(object sender, RoutedEventArgs e)
         {
-            return _isImageLoaded;
+            _mediaWidth = SwitchableMediaElement.NaturalVideoWidth;
+            _mediaHeight = SwitchableMediaElement.NaturalVideoHeight;
+            SetMaxPanValues();
+        }
+
+        private void SwitchableMediaElement_MediaEnded(object sender, RoutedEventArgs e)
+        {
+            SwitchableMediaElement.Position = TimeSpan.FromMilliseconds(1);
         }
 
         /// <summary>
@@ -291,20 +307,33 @@ namespace WpfImageViewer
                 {
                     imagePath = _fileList.ElementAt(_currentFileIndex);
 
+                    _mediaWidth = _mediaHeight = 0;
                     Uri imageUri = new Uri(imagePath);
-                    BitmapImage imageBitmap = new BitmapImage(imageUri);
-                    Image1.Stretch = (imageBitmap.Width <= Grid1.ActualWidth && imageBitmap.Height <= Grid1.ActualHeight) ? Stretch.None : Stretch.Uniform;
-                    if (_runAnimatedGifs && imagePath.EndsWith(".gif", StringComparison.OrdinalIgnoreCase))
+                    BitmapImage imageBitmap = null;
+                    try
                     {
-                        Image1.Source = null;
-                        ImageBehavior.SetAnimatedSource(Image1, imageBitmap);
+                        imageBitmap = new BitmapImage(imageUri);
+                        _mediaWidth = imageBitmap.Width;
+                        _mediaHeight = imageBitmap.Height;
+                    }
+                    catch (Exception)
+                    {
+                        imageBitmap = null;
+                    }
+                    SwitchableImage.Stretch = (imageBitmap == null || (imageBitmap.Width <= Grid1.ActualWidth && imageBitmap.Height <= Grid1.ActualHeight)) ? Stretch.None : Stretch.Uniform;
+                    if (imageBitmap == null || (_runAnimatedGifs && imagePath.EndsWith(".gif", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        _mediaViewModel.FilenameImage = null;
+                        _mediaViewModel.FilenameMedia = imagePath;
+                        _mediaViewModel.CurrentVisualState = VisualStates.ShowMedia;
                     }
                     else
                     {
-                        ImageBehavior.SetAnimatedSource(Image1, null);
-                        Image1.Source = imageBitmap;
+                        _mediaViewModel.FilenameImage = imagePath;
+                        _mediaViewModel.FilenameMedia = null;
+                        _mediaViewModel.CurrentVisualState = VisualStates.ShowImage;
                     }
-                    Image1.Visibility = Visibility.Visible;
+                    Media1.Visibility = Visibility.Visible;
                     _isImageLoaded = true;
 
                     ResetZoomLevel();
@@ -328,16 +357,18 @@ namespace WpfImageViewer
                     else
                     {
                         ShowMessage("Invalid path: " + imagePath);
-                        Image1.Source = null;
+                        _mediaViewModel.FilenameImage = null;
+                        _mediaViewModel.FilenameMedia = null;
+                        _mediaViewModel.CurrentVisualState = VisualStates.ShowImage;
                         _isImageLoaded = false;
                     }
                 }
             }
-            catch
+            catch (Exception)
             {
                 ShowMessage("Invalid image: " + imagePath);
 
-                Image1.Visibility = Visibility.Hidden;
+                Media1.Visibility = Visibility.Hidden;
             }
         }
 
@@ -488,9 +519,9 @@ namespace WpfImageViewer
                         MoveToNewPosition(_kv);
                         break;
                     default:
-                        if (IsImageLoaded())
+                        if (_isImageLoaded)
                         {
-                            var tt = (TranslateTransform)((TransformGroup)Image1.RenderTransform).Children.First(tr => tr is TranslateTransform);
+                            var tt = (TranslateTransform)((TransformGroup)Media1.RenderTransform).Children.First(tr => tr is TranslateTransform);
                             _origin = new Point(0, 0);
                             _kv = new Vector(-tt.X, -tt.Y);
                         }
@@ -504,8 +535,8 @@ namespace WpfImageViewer
         /// </summary>
         private void SetMaxPanValues()
         {
-            var rect = new Rect(Image1.RenderSize);
-            var bounds = Image1.TransformToAncestor(Border1).TransformBounds(rect);
+            var rect = new Rect(0, 0, _mediaWidth, _mediaHeight);
+            var bounds = Media1.TransformToAncestor(Border1).TransformBounds(rect);
             _maxX = (bounds.Width > Window1.Width) ? (bounds.Width - Window1.Width) / 2.0 : 0;
             _maxY = (bounds.Height > Window1.Height) ? (bounds.Height - Window1.Height) / 2.0 : 0;
         }
@@ -517,11 +548,11 @@ namespace WpfImageViewer
         {
             _mode &= ~Modi.Zoom;
 
-            Image1.RenderTransformOrigin = new Point(0.5, 0.5);
+            Media1.RenderTransformOrigin = new Point(0.5, 0.5);
             var tg = new TransformGroup();
             tg.Children.Add(new ScaleTransform());
             tg.Children.Add(new TranslateTransform());
-            Image1.RenderTransform = tg;
+            Media1.RenderTransform = tg;
 
             SetMaxPanValues();
         }
@@ -546,7 +577,7 @@ namespace WpfImageViewer
                 _isFileDialogOpen = false;
             }
 
-            if (IsImageLoaded())
+            if (_isImageLoaded)
             {
                 if (imagePath == null) imagePath = _fileList.ElementAt(_currentFileIndex);
 
@@ -579,7 +610,7 @@ namespace WpfImageViewer
         /// <param name="e"></param>
         private void Grid1_HandleMouseWheel(object sender, MouseWheelEventArgs e)
         {
-            if (IsImageLoaded())
+            if (_isImageLoaded)
             {
                 Zoom(e.Delta);
             }
@@ -592,9 +623,9 @@ namespace WpfImageViewer
         /// <param name="e"></param>
         private void Image1_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (IsImageLoaded() && Image1.CaptureMouse())
+            if (_isImageLoaded && Media1.CaptureMouse())
             {
-                var tt = (TranslateTransform)((TransformGroup)Image1.RenderTransform).Children.First(tr => tr is TranslateTransform);
+                var tt = (TranslateTransform)((TransformGroup)Media1.RenderTransform).Children.First(tr => tr is TranslateTransform);
                 _start = e.GetPosition(Border1);
                 _origin = new Point(tt.X, tt.Y);
             }
@@ -607,7 +638,7 @@ namespace WpfImageViewer
         /// <param name="e"></param>
         private void Image1_MouseMove(object sender, MouseEventArgs e)
         {
-            if (Image1.IsMouseCaptured)
+            if (Media1.IsMouseCaptured)
             {
                 Vector v = _start - e.GetPosition(Border1);
                 MoveToNewPosition(v);
@@ -643,7 +674,7 @@ namespace WpfImageViewer
         /// <param name="v"></param>
         private void MoveToNewPosition(Vector v)
         {
-            var tt = (TranslateTransform)((TransformGroup)Image1.RenderTransform).Children.First(tr => tr is TranslateTransform);
+            var tt = (TranslateTransform)((TransformGroup)Media1.RenderTransform).Children.First(tr => tr is TranslateTransform);
             tt.X = _maxX == 0 ? tt.X : (Math.Abs(_origin.X - v.X) >= _maxX) ? Math.Sign(_origin.X - v.X) * _maxX : _origin.X - v.X;
             tt.Y = _maxY == 0 ? tt.Y : (Math.Abs(_origin.Y - v.Y) >= _maxY) ? Math.Sign(_origin.Y - v.Y) * _maxY : _origin.Y - v.Y;
         }
@@ -655,7 +686,7 @@ namespace WpfImageViewer
         /// <param name="e"></param>
         private void Image1_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
-            Image1.ReleaseMouseCapture();
+            Media1.ReleaseMouseCapture();
         }
 
         /// <summary>
@@ -664,11 +695,11 @@ namespace WpfImageViewer
         /// <param name="delta">-1/1 - smaller/bigger</param>
         private void Zoom(double delta)
         {
-            var st = (ScaleTransform)((TransformGroup)Image1.RenderTransform).Children.First(tr => tr is ScaleTransform);
+            var st = (ScaleTransform)((TransformGroup)Media1.RenderTransform).Children.First(tr => tr is ScaleTransform);
 
             if (delta < 0 && st.ScaleX < _zoomMin || delta > 0 && st.ScaleX > _zoomMax) return;
 
-            var tt = (TranslateTransform)((TransformGroup)Image1.RenderTransform).Children.First(tr => tr is TranslateTransform);
+            var tt = (TranslateTransform)((TransformGroup)Media1.RenderTransform).Children.First(tr => tr is TranslateTransform);
 
             double zoom = delta > 0 ? _zoomStep : 1.0 / _zoomStep;
             st.ScaleX = st.ScaleY *= zoom;
