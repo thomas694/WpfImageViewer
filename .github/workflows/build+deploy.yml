@@ -1,0 +1,119 @@
+name: Builds
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+    - '[v]?[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+
+env:
+  AppName: WpfImageViewer
+  # prefix version number with e.g. "v" or nothing
+  VersionNumberPrefix: v
+
+jobs:
+
+  build:
+
+    strategy:
+      matrix:
+        configuration: [Release]
+
+    runs-on: windows-latest
+
+    outputs:
+      tag: ${{ steps.create_tag.outputs.tag }}
+
+    env:
+      ScriptsPath: .\.github\workflows
+      AssemblyInfoPath: src\Properties\AssemblyInfo.cs
+      SolutionPath: src\WpfImageViewer.sln
+      OutputPath: src/bin/Release
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Get version
+      id: get_version
+      run: |
+        ${{ env.ScriptsPath }}\get-version.ps1 -versionInfoFile "${{ github.workspace }}\${{ env.AssemblyInfoPath }}"
+
+    - name: Create tag
+      id: create_tag
+      run: |
+        ${{ env.ScriptsPath }}\create-tag.ps1 -githubRef "${{ github.ref }}" -versionNumber "${{ steps.get_version.outputs.VersionNumber }}"
+
+    - name: Update AssemblyInfo
+      run: |
+        $v = "${{ steps.create_tag.outputs.tag }}.${{ github.run_number }}"
+        ${{ env.ScriptsPath }}\set-version.ps1 -versionInfoFile "${{ github.workspace }}\${{ env.AssemblyInfoPath }}" -versionNumber "$v"
+
+    - name: Setup MSBuild.exe
+      uses: microsoft/setup-msbuild@v1.0.2
+
+    - name: Setup NuGet.exe for use with actions
+      uses: NuGet/setup-nuget@v1.0.5
+
+    - name: Restore NuGet Packages
+      run: nuget restore ${{ env.SolutionPath }}
+
+    - name: Build
+      run: msbuild ${{ env.SolutionPath }} /p:Configuration=Release
+
+    - name: Add files
+      run: |
+        Copy-Item "LICENSE" -Destination "${{ env.OutputPath }}\LICENSE.txt"
+        Copy-Item "LICENSE 3RD PARTY" -Destination "${{ env.OutputPath }}\LICENSE 3RD PARTY.txt"
+        Remove-Item "${{ env.OutputPath }}\*.pdb"
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ env.AppName }}-${{ env.VersionNumberPrefix }}${{ steps.create_tag.outputs.tag }}
+        path: ${{ env.OutputPath }}
+
+  deploy:
+    needs: [build]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    strategy:
+      matrix:
+        configuration: [Release]
+
+    runs-on: windows-latest
+
+    steps:
+    - name: Create Draft Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ needs.build.outputs.tag }}
+        release_name: ${{ env.AppName }}-${{ env.VersionNumberPrefix }}${{ needs.build.outputs.tag }}
+        draft: true
+        prerelease: false
+
+    - name: Download artifacts
+      uses: actions/download-artifact@v2
+      with:
+        name: ${{ env.AppName }}-${{ env.VersionNumberPrefix }}${{ needs.build.outputs.tag }}
+        path: ${{ env.AppName }}
+        
+    - name: Zip files
+      uses: thedoctor0/zip-release@master
+      with:
+        type: 'zip'
+        filename: '${{ env.AppName }}-${{ env.VersionNumberPrefix }}${{ needs.build.outputs.tag }}.zip'
+        path: ${{ env.AppName }}
+
+    - name: Upload release assets
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: .\${{ env.AppName }}-${{ env.VersionNumberPrefix }}${{ needs.build.outputs.tag }}.zip
+        asset_name: ${{ env.AppName }}-${{ env.VersionNumberPrefix }}${{ needs.build.outputs.tag }}.zip
+        asset_content_type: application/zip
