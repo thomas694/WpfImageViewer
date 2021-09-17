@@ -176,9 +176,8 @@ namespace WpfImageViewer
         private void ReadSettings()
         {
             var processFilename = Path.GetFileName(Process.GetCurrentProcess().MainModule.FileName).ToLower();
-            string codeBase = System.Reflection.Assembly.GetExecutingAssembly().CodeBase;
-            UriBuilder uri = new UriBuilder(codeBase);
-            string codeFilename = Path.GetFileName(Uri.UnescapeDataString(uri.Path)).ToLower();
+            string codePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            string codeFilename = Path.GetFileName(codePath).ToLower();
             _isApplication = processFilename == codeFilename;
 
             if (_isApplication)
@@ -198,7 +197,7 @@ namespace WpfImageViewer
             }
             else
             {
-                Configuration conf = ConfigurationManager.OpenExeConfiguration(codeFilename);
+                Configuration conf = ConfigurationManager.OpenExeConfiguration(Path.Combine(Path.GetDirectoryName(codePath), codeFilename));
                 ClientSettingsSection section = (ClientSettingsSection)conf.GetSection("userSettings/WpfImageViewer.Properties.Settings");
 
                 _applicationTitle = section.Settings.Get("ApplicationTitle").Value.ValueXml.InnerText;
