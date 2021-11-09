@@ -73,8 +73,24 @@ namespace WpfImageViewer
 
         public MainWindow()
         {
+            string[] args = null;
+            try
+            {
+                args = Environment.GetCommandLineArgs();
+            }
+            catch (NotSupportedException)
+            {
+            }
+            if (args?.Length > 1)
+            {
+                _directory = Path.GetDirectoryName(args[1]);
+            }
             ReadSettings();
             Initialize();
+            if (args?.Length > 1)
+            {
+                SetImage(args[1]);
+            }
         }
 
         /// <summary>
