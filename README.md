@@ -2,10 +2,12 @@
 
 A simple fullscreen WPF-based image viewer that closes when you press Esc and also supports a slideshow mode.
 
-## Functionality
+## Functionality / Usage
 
 The image viewer can be used as a standalone application or its window for image viewing can be included as a dialog into another application.
-It supports animated GIFs and can either run them or show a preview image only.
+It supports animated GIFs and GIFVs and can either run them or show a preview image only.
+
+You can assign the application as default viewer for any supported media format, but especially for gif/gifv files, by using the windows explorer "open with" "choose another app" "always use this app" functionality.
 
 ### Mouse
 
@@ -34,7 +36,7 @@ It supports animated GIFs and can either run them or show a preview image only.
 
 ### Config / Parameters
 
-Some settings can be overridden in WpfImageViewer.exe.config.
+Some settings can be overridden in `WpfImageViewer.exe.config`.
 
 * ApplicationTitle
     * set the name of the application, e.g. shown during Alt-Tab
@@ -51,7 +53,7 @@ Some settings can be overridden in WpfImageViewer.exe.config.
 * IncludedFileExtensions
     * extensions to include when loading images from folder
     * include dot before extension, separate by only comma, no space
-    * default: .bmp,.gif,.jpeg,.jpg,.png,.tif,.tiff
+    * default: .bmp,.gif,.gifv,.jpeg,.jpg,.png,.tif,.tiff
 * MsgColor
     * set message text color using a color name
     * default: Green
@@ -61,7 +63,7 @@ Some settings can be overridden in WpfImageViewer.exe.config.
     * 0 disables the status text
     * a negative value disables fadeout
 * RunAnimatedGifs
-    * run the animated gif or show a preview only
+    * run the animated gif/gifv or show a preview only
     * default: True
 * ShowHelpOnLoad
     * shows a help screen on application/dialog load
@@ -75,8 +77,9 @@ Some settings can be overridden in WpfImageViewer.exe.config.
 * ZoomStep
     * change in zoom value per step
     * default: 1.25
+<br/>
 
-### Usage as dialog inside another application
+## Usage as dialog inside another application
 
 Either include the whole project to your solution or include a reference to the exe only. Then you can create a window object 
 ```csharp
@@ -94,4 +97,27 @@ or if you only want to specify the folder to load:
 // declaration of overloaded constructor
 WpfImageViewer.MainWindow wnd = new WpfImageViewer.MainWindow(string folder)
 ```
+<br/>
+
+## Enable Gifv file thumbnails in Windows Explorer (Win 10)
+
+By default no thumbnails are shown for gifv files even they are compatible to standard gif files. But you can enable a setting in windows so that thumbnails for gifv files are provided by windows itself.
+
+To enable thumbnails for the current user only, copy the following lines into a text file named e.g. `enable.reg` and double-click it to import the setting into the windows registry:
+```
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\SOFTWARE\Classes\.gifv\ShellEx\{e357fccd-a995-4576-b01f-234630154e96}]
+@="{C7657C4A-9F68-40fa-A4DF-96BC08EB3551}"
+```
+
+To enable thumbnails for all users on the system, copy the following lines into a text file named e.g. `enable.reg` and double-click it to import the setting into the windows registry:
+```
+Windows Registry Editor Version 5.00
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Classes\.gifv\ShellEx\{e357fccd-a995-4576-b01f-234630154e96}]
+@="{C7657C4A-9F68-40fa-A4DF-96BC08EB3551}"
+```
+
+Afterwards you need to restart your pc or at least log out and in before thumbnails are shown.
 <br/><br/>

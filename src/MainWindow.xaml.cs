@@ -6,7 +6,9 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
+using System.Web;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -70,6 +72,8 @@ namespace WpfImageViewer
         readonly DispatcherTimer _timerSlideshow = new DispatcherTimer();
 
         readonly MediaViewModel _mediaViewModel = new MediaViewModel();
+
+        private MediaFileServer _mediaFileServer = null;
 
         public MainWindow()
         {
@@ -137,6 +141,13 @@ namespace WpfImageViewer
             Initialize();
         }
 
+        ~MainWindow()
+        {
+            if (_mediaFileServer != null)
+            {
+                _mediaFileServer.Stop();
+            }
+        }
 
         /// <summary>
         /// Run modal window asynchronously and let the calling application continue its background work
@@ -267,13 +278,40 @@ namespace WpfImageViewer
             }
             catch
             {
-                _fileExtensions = new[] { ".bmp", ".gif", ".jpeg", ".jpg", ".png", ".tif", ".tiff" };
+                _fileExtensions = new[] { ".bmp", ".gif", ".gifv", ".jpeg", ".jpg", ".png", ".tif", ".tiff" };
             }
 
             PreviewKeyDown += Window1_PreviewKeyDown;
             LostKeyboardFocus += Window1_LostKeyboardFocus;
             GotKeyboardFocus += Window1_GotKeyboardFocus;
             Closing += Window1_Closing;
+
+            // workaround for showing files with .gifv extension
+            if (_fileExtensions.Contains(".gifv"))
+            {
+                int port = 56789;
+                int count = 0;
+                do
+                {
+                    count++;
+                    try
+                    {
+                        _mediaFileServer = new MediaFileServer($"http://localhost:{port}/", RequestHandlerMethod);
+                        port = 0;
+                    }
+                    catch (HttpListenerException)
+                    {
+                        port = new Random().Next(50000, 65000);
+                    }
+                } while (port != 0 || count < 3);
+                _mediaFileServer.Run();
+            }
+        }
+
+        private byte[] RequestHandlerMethod(HttpListenerRequest r)
+        {
+            var path = HttpUtility.UrlDecode(r.RawUrl.TrimStart('/'));
+            return File.ReadAllBytes(path);
         }
 
         private void Window1_Loaded(object sender, RoutedEventArgs e)
@@ -335,10 +373,15 @@ namespace WpfImageViewer
                         imageBitmap = null;
                     }
                     SwitchableImage.Stretch = (imageBitmap == null || (imageBitmap.Width <= Grid1.ActualWidth && imageBitmap.Height <= Grid1.ActualHeight)) ? Stretch.None : Stretch.Uniform;
-                    if (imageBitmap == null || (_runAnimatedGifs && imagePath.EndsWith(".gif", StringComparison.OrdinalIgnoreCase)))
+                    if (imageBitmap == null || (_runAnimatedGifs && (imagePath.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) || imagePath.EndsWith(".gifv", StringComparison.OrdinalIgnoreCase))))
                     {
+                        var imagePathEncoded = imagePath;
+                        if (_mediaFileServer != null && imagePath.EndsWith(".gifv", StringComparison.OrdinalIgnoreCase))
+                        {
+                            imagePathEncoded = _mediaFileServer.Prefix + HttpUtility.UrlEncode(imagePath);
+                        }
                         _mediaViewModel.FilenameImage = null;
-                        _mediaViewModel.FilenameMedia = imagePath;
+                        _mediaViewModel.FilenameMedia = imagePathEncoded;
                         _mediaViewModel.CurrentVisualState = VisualStates.ShowMedia;
                     }
                     else
