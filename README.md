@@ -101,7 +101,7 @@ WpfImageViewer.MainWindow wnd = new WpfImageViewer.MainWindow(string folder)
 
 ## Enable Gifv file thumbnails in Windows Explorer (Win 10)
 
-By default no thumbnails are shown for gifv files even they are compatible to standard gif files. But you can enable a setting in windows so that thumbnails for gifv files are provided by windows itself.
+By default no thumbnails are shown for gifv files even if the content is a standard gif file. But you can assign the standard handler for gif files so that thumbnails for gifv files (with gif content) are provided by windows itself.
 
 To enable thumbnails for the current user only, copy the following lines into a text file named e.g. `enable.reg` and double-click it to import the setting into the windows registry:
 ```
