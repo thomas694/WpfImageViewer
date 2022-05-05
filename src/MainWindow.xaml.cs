@@ -300,12 +300,16 @@ namespace WpfImageViewer
                         _mediaFileServer = new MediaFileServer($"http://localhost:{port}/", RequestHandlerMethod);
                         port = 0;
                     }
+                    catch (NotSupportedException)
+                    {
+                        port = 0;
+                    }
                     catch (HttpListenerException)
                     {
                         port = new Random().Next(50000, 65000);
                     }
-                } while (port != 0 || count < 3);
-                _mediaFileServer.Run();
+                } while (port != 0 && count < 3);
+                _mediaFileServer?.Run();
             }
         }
 
