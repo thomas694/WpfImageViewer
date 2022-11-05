@@ -5,6 +5,7 @@ namespace WpfImageViewer
 {
     public enum VisualStates
     {
+        ShowAnim,
         ShowImage,
         ShowMedia
     }
@@ -13,9 +14,20 @@ namespace WpfImageViewer
     {
         public event PropertyChangedEventHandler PropertyChanged;
 
+        private string filenameAnim;
         private string filenameImage;
         private string filenameMedia;
         private VisualStates currentVisualState;
+
+        public string FilenameAnim
+        {
+            get => filenameAnim;
+            set
+            {
+                filenameAnim = value;
+                OnPropertyChanged();
+            }
+        }
 
         public string FilenameImage
         {

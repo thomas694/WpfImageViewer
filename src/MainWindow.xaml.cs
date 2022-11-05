@@ -340,6 +340,13 @@ namespace WpfImageViewer
             }
         }
 
+        private void SwitchableAnim_MediaLoaded(object sender, RoutedEventArgs e)
+        {
+            _mediaWidth = SwitchableAnim.NaturalImageWidth;
+            _mediaHeight = SwitchableAnim.NaturalImageHeight;
+            SetMaxPanValues();
+        }
+
         private void SwitchableMediaElement_MediaOpened(object sender, RoutedEventArgs e)
         {
             _mediaWidth = SwitchableMediaElement.NaturalVideoWidth;
@@ -365,34 +372,44 @@ namespace WpfImageViewer
                     imagePath = _fileList.ElementAt(_currentFileIndex);
 
                     _mediaWidth = _mediaHeight = 0;
-                    Uri imageUri = new Uri(imagePath);
+                    Uri imageUri = null;
                     BitmapImage imageBitmap = null;
-                    try
+                    if (!imagePath.EndsWith(".webp", StringComparison.OrdinalIgnoreCase))
                     {
-                        imageBitmap = new BitmapImage(imageUri);
-                        _mediaWidth = imageBitmap.Width;
-                        _mediaHeight = imageBitmap.Height;
-                    }
-                    catch (Exception)
-                    {
-                        imageBitmap = null;
+                        imageUri = new Uri(imagePath);
+                        try
+                        {
+                            imageBitmap = new BitmapImage(imageUri);
+                            _mediaWidth = imageBitmap.Width;
+                            _mediaHeight = imageBitmap.Height;
+                        }
+                        catch (Exception)
+                        {
+                            imageBitmap = null;
+                        }
                     }
                     SwitchableImage.Stretch = (imageBitmap == null || (imageBitmap.Width <= Grid1.ActualWidth && imageBitmap.Height <= Grid1.ActualHeight)) ? Stretch.None : Stretch.Uniform;
-                    if (imageBitmap == null || (_runAnimatedGifs && (imagePath.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) || imagePath.EndsWith(".gifv", StringComparison.OrdinalIgnoreCase))))
+                    if (imageBitmap == null && imagePath.EndsWith(".webp", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _mediaViewModel.FilenameAnim = imagePath;
+                        _mediaViewModel.FilenameImage = _mediaViewModel.FilenameMedia = null;
+                        _mediaViewModel.CurrentVisualState = VisualStates.ShowAnim;
+                    }
+                    else if (imageBitmap == null || (_runAnimatedGifs && (imagePath.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) || imagePath.EndsWith(".gifv", StringComparison.OrdinalIgnoreCase))))
                     {
                         var imagePathEncoded = imagePath;
                         if (_mediaFileServer != null && imagePath.EndsWith(".gifv", StringComparison.OrdinalIgnoreCase))
                         {
                             imagePathEncoded = _mediaFileServer.Prefix + HttpUtility.UrlEncode(imagePath);
                         }
-                        _mediaViewModel.FilenameImage = null;
                         _mediaViewModel.FilenameMedia = imagePathEncoded;
+                        _mediaViewModel.FilenameAnim = _mediaViewModel.FilenameImage = null;
                         _mediaViewModel.CurrentVisualState = VisualStates.ShowMedia;
                     }
                     else
                     {
                         _mediaViewModel.FilenameImage = imagePath;
-                        _mediaViewModel.FilenameMedia = null;
+                        _mediaViewModel.FilenameAnim = _mediaViewModel.FilenameMedia = null;
                         _mediaViewModel.CurrentVisualState = VisualStates.ShowImage;
                     }
                     Media1.Visibility = Visibility.Visible;

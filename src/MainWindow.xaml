@@ -4,6 +4,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
         xmlns:ei="http://schemas.microsoft.com/xaml/behaviors"
+        xmlns:local="clr-namespace:WpfImageViewer"
         Title="MainWindow" WindowStyle="None" WindowState="Maximized" Loaded="Window1_Loaded">
     <Grid x:Name="Grid1" MouseDown="Grid1_MouseDown" MouseWheel="Grid1_HandleMouseWheel">
         <Border x:Name="Border1" ClipToBounds="True">
@@ -29,6 +30,38 @@
                                             </DiscreteObjectKeyFrame.Value>
                                         </DiscreteObjectKeyFrame>
                                     </ObjectAnimationUsingKeyFrames>
+                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="SwitchableAnim" Storyboard.TargetProperty="Visibility" Duration="0">
+                                        <DiscreteObjectKeyFrame KeyTime="0">
+                                            <DiscreteObjectKeyFrame.Value>
+                                                <Visibility>Collapsed</Visibility>
+                                            </DiscreteObjectKeyFrame.Value>
+                                        </DiscreteObjectKeyFrame>
+                                    </ObjectAnimationUsingKeyFrames>
+                                </Storyboard>
+                            </VisualState>
+                            <VisualState x:Name="ShowAnim">
+                                <Storyboard>
+                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="SwitchableImage" Storyboard.TargetProperty="Visibility" Duration="0">
+                                        <DiscreteObjectKeyFrame KeyTime="0">
+                                            <DiscreteObjectKeyFrame.Value>
+                                                <Visibility>Collapsed</Visibility>
+                                            </DiscreteObjectKeyFrame.Value>
+                                        </DiscreteObjectKeyFrame>
+                                    </ObjectAnimationUsingKeyFrames>
+                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="SwitchableMediaElement" Storyboard.TargetProperty="Visibility" Duration="0">
+                                        <DiscreteObjectKeyFrame KeyTime="0">
+                                            <DiscreteObjectKeyFrame.Value>
+                                                <Visibility>Collapsed</Visibility>
+                                            </DiscreteObjectKeyFrame.Value>
+                                        </DiscreteObjectKeyFrame>
+                                    </ObjectAnimationUsingKeyFrames>
+                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="SwitchableAnim" Storyboard.TargetProperty="Visibility" Duration="0">
+                                        <DiscreteObjectKeyFrame KeyTime="0">
+                                            <DiscreteObjectKeyFrame.Value>
+                                                <Visibility>Visible</Visibility>
+                                            </DiscreteObjectKeyFrame.Value>
+                                        </DiscreteObjectKeyFrame>
+                                    </ObjectAnimationUsingKeyFrames>
                                 </Storyboard>
                             </VisualState>
                         </VisualStateGroup>
@@ -40,6 +73,9 @@
                     <Image Visibility="Visible" x:Name="SwitchableImage" 
                            Source="{Binding FilenameImage, Converter={StaticResource NullImageConverter}, IsAsync=True}"
                            Stretch="Uniform" StretchDirection="DownOnly" />
+                    <local:AnimatedWebpElement Visibility="Collapsed" x:Name="SwitchableAnim" 
+                                               Source="{Binding FilenameAnim, Converter={StaticResource NullImageConverter}, IsAsync=True}" 
+                                               MediaLoaded="SwitchableAnim_MediaLoaded" />
                     <i:Interaction.Triggers>
                         <ei:DataTrigger Binding="{Binding CurrentVisualState}" Value="{Binding CurrentVisualState}">
                             <ei:GoToStateAction StateName="{Binding CurrentVisualState}" />
