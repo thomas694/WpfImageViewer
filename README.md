@@ -5,7 +5,7 @@ A simple fullscreen WPF-based image viewer that closes when you press Esc and al
 ## Functionality / Usage
 
 The image viewer can be used as a standalone application or its window for image viewing can be included as a dialog into another application.
-It supports animated GIFs and GIFVs and can either run them or show a preview image only.
+It supports animated GIFs and GIFVs and can either run them or show a preview image only. And it also supports normal and animated WebP images.
 
 You can assign the application as default viewer for any supported media format, but especially for gif/gifv files, by using the windows explorer "open with" "choose another app" "always use this app" functionality.
 
