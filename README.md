@@ -53,7 +53,7 @@ Some settings can be overridden in `WpfImageViewer.exe.config`.
 * IncludedFileExtensions
     * extensions to include when loading images from folder
     * include dot before extension, separate by only comma, no space
-    * default: .bmp,.gif,.gifv,.jpeg,.jpg,.png,.tif,.tiff
+    * default: .bmp,.gif,.gifv,.jpeg,.jpg,.png,.tif,.tiff,.webp
 * MsgColor
     * set message text color using a color name
     * default: Green
